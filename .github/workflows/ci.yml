@@ -56,16 +56,19 @@ jobs:
             napi_artifact: target/release/libmef_napi.so
             jni_artifact: target/release/libmef_jni.so
             jni_name: libmef_jni.so
+            classpath_separator: ':'
           - os: macos-14
             platform: darwin-arm64
             napi_artifact: target/release/libmef_napi.dylib
             jni_artifact: target/release/libmef_jni.dylib
             jni_name: libmef_jni.dylib
+            classpath_separator: ':'
           - os: windows-2022
             platform: win32-x64-msvc
             napi_artifact: target/release/mef_napi.dll
             jni_artifact: target/release/mef_jni.dll
             jni_name: mef_jni.dll
+            classpath_separator: ';'
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: dtolnay/rust-toolchain@1.89
@@ -104,4 +107,4 @@ jobs:
           printf '%s\n' 'import io.goldpilgrim.mef26.Mef26;' 'public final class Mef26Smoke { public static void main(String[] args) { if (Mef26.abiVersion() != 1 || !"MEF-26".equals(Mef26.protocolId())) throw new IllegalStateException(); } }' > /tmp/Mef26Smoke.java
           javac --release 21 -cp /tmp/mef26-java-classes -d /tmp/mef26-java-classes /tmp/Mef26Smoke.java
           native_jar=$(find packages/maven/natives/target -name '*.jar' -not -name '*sources*' | head -n 1)
-          java -Djava.library.path=/tmp -cp "/tmp/mef26-java-classes:${native_jar}" Mef26Smoke
+          java -Djava.library.path=/tmp -cp "/tmp/mef26-java-classes${{ matrix.classpath_separator }}${native_jar}" Mef26Smoke
