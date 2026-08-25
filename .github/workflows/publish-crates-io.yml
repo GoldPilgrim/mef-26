@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 GoldPilgrim <https://github.com/GoldPilgrim>
+# This file is part of MEF-26.
+
+name: Publish MEF-26 to crates.io
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type publish to release the checked-out mef-26 package to crates.io.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: inputs.confirmation == 'publish'
+    name: Publish Rust package
+    runs-on: ubuntu-24.04
+    environment: crates-io
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@1.89
+      - name: Verify packaged crate
+        run: cargo publish --dry-run --locked --package mef-26
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --locked --package mef-26
