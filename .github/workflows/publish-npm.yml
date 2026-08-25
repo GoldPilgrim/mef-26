@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 GoldPilgrim <https://github.com/GoldPilgrim>
+# This file is part of MEF-26.
+
+name: Publish MEF-26 npm packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type publish to release the MEF-26 npm platform packages and parent package.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-native:
+    name: Build npm native package (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64-gnu
+            napi_artifact: target/release/libmef_napi.so
+          - os: macos-13
+            platform: darwin-x64
+            napi_artifact: target/release/libmef_napi.dylib
+          - os: macos-14
+            platform: darwin-arm64
+            napi_artifact: target/release/libmef_napi.dylib
+          - os: windows-2022
+            platform: win32-x64-msvc
+            napi_artifact: target/release/mef_napi.dll
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build and stage native package
+        shell: bash
+        run: |
+          cargo build --release --package mef-napi
+          cp LICENSE "packages/npm/platforms/${{ matrix.platform }}/LICENSE"
+          node packages/npm/scripts/package-native.mjs "${{ matrix.platform }}" "${{ matrix.napi_artifact }}"
+          mkdir -p packages/npm/node_modules/@goldpilgrim
+          cp -a "packages/npm/platforms/${{ matrix.platform }}" "packages/npm/node_modules/@goldpilgrim/mef26-${{ matrix.platform }}"
+          node -e "const api = require('./packages/npm'); if (api.abiVersion() !== 1 || api.protocolId() !== 'MEF-26') process.exit(1);"
+          rm -rf packages/npm/node_modules
+          mkdir -p "$RUNNER_TEMP/npm-artifacts"
+          npm pack "packages/npm/platforms/${{ matrix.platform }}" --pack-destination "$RUNNER_TEMP/npm-artifacts"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-${{ matrix.platform }}
+          path: ${{ runner.temp }}/npm-artifacts/*.tgz
+          if-no-files-found: error
+
+  publish:
+    if: inputs.confirmation == 'publish'
+    needs: build-native
+    name: Publish platform packages and parent package
+    runs-on: ubuntu-24.04
+    environment: npm
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/npm-artifacts
+          merge-multiple: true
+      - name: Verify npm archives
+        run: |
+          npm --prefix packages/npm run check
+          for archive in "${RUNNER_TEMP}"/npm-artifacts/*.tgz; do
+            npm publish "$archive" --dry-run --access public
+          done
+          npm publish packages/npm --dry-run --access public
+      - name: Publish npm packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for archive in "${RUNNER_TEMP}"/npm-artifacts/*.tgz; do
+            npm publish "$archive" --access public
+          done
+          npm publish packages/npm --access public
