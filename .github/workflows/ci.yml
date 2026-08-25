@@ -102,9 +102,10 @@ jobs:
           mkdir -p "$resource"
           cp "${{ matrix.jni_artifact }}" "$resource/${{ matrix.jni_name }}"
           mvn -q -f packages/maven/natives/pom.xml -Dmef.platform="${{ matrix.platform }}" package
-          mkdir -p /tmp/mef26-java-classes
-          javac --release 21 -d /tmp/mef26-java-classes $(find packages/maven/src/main/java -name '*.java')
-          printf '%s\n' 'import io.goldpilgrim.mef26.Mef26;' 'public final class Mef26Smoke { public static void main(String[] args) { if (Mef26.abiVersion() != 1 || !"MEF-26".equals(Mef26.protocolId())) throw new IllegalStateException(); } }' > /tmp/Mef26Smoke.java
-          javac --release 21 -cp /tmp/mef26-java-classes -d /tmp/mef26-java-classes /tmp/Mef26Smoke.java
+          java_classes=packages/maven/target/mef26-java-classes
+          mkdir -p "$java_classes"
+          javac --release 21 -d "$java_classes" $(find packages/maven/src/main/java -name '*.java')
+          printf '%s\n' 'import io.goldpilgrim.mef26.Mef26;' 'public final class Mef26Smoke { public static void main(String[] args) { if (Mef26.abiVersion() != 1 || !"MEF-26".equals(Mef26.protocolId())) throw new IllegalStateException(); } }' > packages/maven/target/Mef26Smoke.java
+          javac --release 21 -cp "$java_classes" -d "$java_classes" packages/maven/target/Mef26Smoke.java
           native_jar=$(find packages/maven/natives/target -name '*.jar' -not -name '*sources*' | head -n 1)
-          java -Djava.library.path=/tmp -cp "/tmp/mef26-java-classes${{ matrix.classpath_separator }}${native_jar}" Mef26Smoke
+          java -Djava.library.path="$java_classes/empty" -cp "$java_classes${{ matrix.classpath_separator }}${native_jar}" Mef26Smoke
