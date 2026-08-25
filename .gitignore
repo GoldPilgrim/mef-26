@@ -1,0 +1,27 @@
+# Rust build outputs
+/target/
+/fuzz/target/
+
+# Fuzz runtime outputs
+/fuzz/corpus/
+/fuzz/artifacts/
+
+# Maven build outputs
+/packages/maven/target/
+/packages/maven/natives/target/
+
+# Node.js dependencies and packed/staged native artifacts
+/packages/npm/node_modules/
+/packages/npm/**/*.node
+/packages/npm/**/*.tgz
+/packages/npm/platforms/**/LICENSE
+
+# Platform-native staging artifacts
+*.so
+*.dylib
+*.dll
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

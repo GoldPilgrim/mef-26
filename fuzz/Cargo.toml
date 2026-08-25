@@ -1,0 +1,31 @@
+[package]
+name = "mef-26-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.mef-26]
+path = ".."
+features = ["pq"]
+
+[[bin]]
+name = "wire_parsers"
+path = "fuzz_targets/wire_parsers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "handshake_wire"
+path = "fuzz_targets/handshake_wire.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

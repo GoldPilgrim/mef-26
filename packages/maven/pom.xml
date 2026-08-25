@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     Copyright (C) 2026 GoldPilgrim <https://github.com/GoldPilgrim>
+     This file is part of MEF-26. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.goldpilgrim</groupId>
+  <artifactId>mef26</artifactId>
+  <version>0.1.0</version>
+  <name>MEF-26 JVM bindings</name>
+  <description>AGPL-3.0-or-later Java facade for MEF-26 native bindings.</description>
+  <url>https://github.com/GoldPilgrim/mef-26</url>
+
+  <licenses>
+    <license>
+      <name>GNU Affero General Public License v3.0 or later</name>
+      <url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>GoldPilgrim</name>
+      <url>https://github.com/GoldPilgrim</url>
+    </developer>
+  </developers>
+  <scm>
+    <url>https://github.com/GoldPilgrim/mef-26</url>
+    <connection>scm:git:https://github.com/GoldPilgrim/mef-26.git</connection>
+  </scm>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.14.1</version>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution><id>attach-sources</id><goals><goal>jar-no-fork</goal></goals></execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <executions>
+          <execution><id>attach-javadocs</id><goals><goal>jar</goal></goals></execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

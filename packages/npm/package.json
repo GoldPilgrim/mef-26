@@ -1,0 +1,37 @@
+{
+  "name": "@goldpilgrim/mef26",
+  "version": "0.1.0",
+  "description": "Platform-selecting N-API metadata binding for MEF-26.",
+  "license": "AGPL-3.0-or-later",
+  "author": "GoldPilgrim",
+  "homepage": "https://github.com/GoldPilgrim/mef-26",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoldPilgrim/mef-26.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GoldPilgrim/mef-26/issues"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "@goldpilgrim/mef26-darwin-arm64": "0.1.0",
+    "@goldpilgrim/mef26-darwin-x64": "0.1.0",
+    "@goldpilgrim/mef26-linux-x64-gnu": "0.1.0",
+    "@goldpilgrim/mef26-win32-x64-msvc": "0.1.0"
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check scripts/package-native.mjs",
+    "pack:dry": "npm pack --dry-run"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["e2ee", "messaging", "cryptography", "napi", "ratchet"]
+}

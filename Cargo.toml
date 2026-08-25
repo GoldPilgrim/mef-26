@@ -1,0 +1,74 @@
+[package]
+name = "mef-26"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "A modular security-focused framework core for building 1:1 end-to-end encrypted messengers."
+authors = ["GoldPilgrim"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/GoldPilgrim/mef-26"
+homepage = "https://github.com/GoldPilgrim"
+readme = "README.md"
+keywords = ["e2ee", "messaging", "cryptography", "ratchet", "security"]
+categories = ["cryptography"]
+
+[workspace]
+members = [".", "crates/mef-ffi", "crates/mef-napi", "crates/mef-jni"]
+resolver = "3"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
+[features]
+default = ["std"]
+std = []
+pq = ["dep:ml-kem"]
+
+[dependencies]
+aes-gcm = { version = "0.11.1", features = ["aes", "getrandom"] }
+blake3 = { version = "1.8.7", features = ["zeroize"] }
+chacha20poly1305 = { version = "0.11.0", features = ["getrandom"] }
+ed25519-dalek = { version = "3.0.0", features = ["rand_core", "zeroize"] }
+getrandom = { version = "0.4.3", features = ["sys_rng"] }
+hkdf = "0.12.4"
+ml-kem = { version = "0.3.2", optional = true, features = ["zeroize"] }
+rand_core = "0.10.1"
+kem = "0.3.0"
+sha2 = "0.10.9"
+subtle = "2.6.1"
+thiserror = "2.0.17"
+x25519-dalek = { version = "3.0.0", features = ["getrandom", "reusable_secrets", "static_secrets", "zeroize"] }
+zeroize = { version = "1.8.2", features = ["derive"] }
+
+[dev-dependencies]
+hex = "0.4.3"
+proptest = "1.9.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
+[profile.release]
+opt-level = "z"
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+strip = "symbols"
+debug = false
+incremental = false
+overflow-checks = true

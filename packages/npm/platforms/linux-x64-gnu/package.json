@@ -1,0 +1,17 @@
+{
+  "name": "@goldpilgrim/mef26-linux-x64-gnu",
+  "version": "0.1.0",
+  "description": "Linux x64 GNU native artifact for @goldpilgrim/mef26.",
+  "license": "AGPL-3.0-or-later",
+  "author": "GoldPilgrim",
+  "homepage": "https://github.com/GoldPilgrim/mef-26",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GoldPilgrim/mef-26.git"
+  },
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "main": "mef26.node",
+  "files": ["mef26.node", "LICENSE"],
+  "publishConfig": {"access": "public"}
+}

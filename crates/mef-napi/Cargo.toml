@@ -1,0 +1,30 @@
+[package]
+name = "mef-napi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "N-API metadata binding for MEF-26."
+authors = ["GoldPilgrim"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/GoldPilgrim/mef-26"
+publish = false
+
+[lib]
+name = "mef_napi"
+crate-type = ["cdylib"]
+
+[dependencies]
+mef-26 = { path = "../..", default-features = false, features = ["std"] }
+napi = { version = "3.12.2", default-features = false, features = ["napi4"] }
+napi-derive = "3.6.3"
+
+[lints.rust]
+unsafe_code = "allow"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

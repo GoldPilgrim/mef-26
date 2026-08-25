@@ -1,0 +1,35 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     Copyright (C) 2026 GoldPilgrim <https://github.com/GoldPilgrim>
+     This file is part of MEF-26. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.goldpilgrim</groupId>
+  <artifactId>mef26-native-${mef.platform}</artifactId>
+  <version>0.1.0</version>
+  <name>MEF-26 ${mef.platform} JNI native artifact</name>
+  <description>Platform-specific JNI resource for the MEF-26 Maven facade.</description>
+  <url>https://github.com/GoldPilgrim/mef-26</url>
+  <licenses>
+    <license>
+      <name>GNU Affero General Public License v3.0 or later</name>
+      <url>https://www.gnu.org/licenses/agpl-3.0.html</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers><developer><name>GoldPilgrim</name><url>https://github.com/GoldPilgrim</url></developer></developers>
+  <scm>
+    <url>https://github.com/GoldPilgrim/mef-26</url>
+    <connection>scm:git:https://github.com/GoldPilgrim/mef-26.git</connection>
+  </scm>
+  <properties>
+    <mef.platform>UNSET</mef.platform>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <build>
+    <resources>
+      <resource><directory>${project.basedir}/${mef.platform}/src/main/resources</directory></resource>
+    </resources>
+  </build>
+</project>

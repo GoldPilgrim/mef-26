@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 GoldPilgrim <https://github.com/GoldPilgrim>
+# This file is part of MEF-26.
+
+name: MEF-26 CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Core quality
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@1.89
+        with:
+          components: rustfmt, clippy
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --workspace --all-features
+      - name: Rust documentation
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --all-features --no-deps
+      - name: Fuzz harness build
+        run: |
+          cargo install cargo-fuzz --version 0.13.1 --locked
+          cargo fuzz build wire_parsers --sanitizer none
+          cargo fuzz build handshake_wire --sanitizer none
+      - name: Release build
+        run: cargo build --workspace --release --all-features
+      - name: RustSec advisory audit
+        run: |
+          cargo install cargo-audit --version 0.22.0 --locked
+          cargo audit
+      - name: Rust package archive
+        run: cargo package --allow-dirty --no-verify
+
+  native-packages:
+    name: Native packages (${{ matrix.platform }})
+    needs: core
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x64-gnu
+            napi_artifact: target/release/libmef_napi.so
+            jni_artifact: target/release/libmef_jni.so
+            jni_name: libmef_jni.so
+          - os: macos-14
+            platform: darwin-arm64
+            napi_artifact: target/release/libmef_napi.dylib
+            jni_artifact: target/release/libmef_jni.dylib
+            jni_name: libmef_jni.dylib
+          - os: windows-2022
+            platform: win32-x64-msvc
+            napi_artifact: target/release/mef_napi.dll
+            jni_artifact: target/release/mef_jni.dll
+            jni_name: mef_jni.dll
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@1.89
+      - name: Build native bindings
+        shell: bash
+        run: cargo build -p mef-ffi -p mef-napi -p mef-jni --release
+      - name: C ABI smoke test
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          printf '#include "mef26.h"\nint main(void) { return mef26_abi_version() == 1 ? 0 : 1; }\n' > /tmp/mef26-smoke.c
+          cc -I packages/c/include /tmp/mef26-smoke.c -L target/release -lmef_ffi -Wl,-rpath,"$PWD/target/release" -o /tmp/mef26-smoke
+          /tmp/mef26-smoke
+      - name: Stage and load npm platform package
+        shell: bash
+        run: |
+          cp LICENSE "packages/npm/platforms/${{ matrix.platform }}/LICENSE"
+          node packages/npm/scripts/package-native.mjs "${{ matrix.platform }}" "${{ matrix.napi_artifact }}"
+          mkdir -p packages/npm/node_modules/@goldpilgrim
+          cp -a "packages/npm/platforms/${{ matrix.platform }}" "packages/npm/node_modules/@goldpilgrim/mef26-${{ matrix.platform }}"
+          node -e "const api = require('./packages/npm'); if (api.abiVersion() !== 1 || api.protocolId() !== 'MEF-26') process.exit(1);"
+          (cd packages/npm && npm run check && npm pack --dry-run)
+      - name: Stage and load Maven native resource package
+        shell: bash
+        run: |
+          resource="packages/maven/natives/${{ matrix.platform }}/src/main/resources/META-INF/native/${{ matrix.platform }}"
+          mkdir -p "$resource"
+          cp "${{ matrix.jni_artifact }}" "$resource/${{ matrix.jni_name }}"
+          mvn -q -f packages/maven/natives/pom.xml -Dmef.platform="${{ matrix.platform }}" package
+          mkdir -p /tmp/mef26-java-classes
+          javac --release 21 -d /tmp/mef26-java-classes $(find packages/maven/src/main/java -name '*.java')
+          printf '%s\n' 'import io.goldpilgrim.mef26.Mef26;' 'public final class Mef26Smoke { public static void main(String[] args) { if (Mef26.abiVersion() != 1 || !"MEF-26".equals(Mef26.protocolId())) throw new IllegalStateException(); } }' > /tmp/Mef26Smoke.java
+          javac --release 21 -cp /tmp/mef26-java-classes -d /tmp/mef26-java-classes /tmp/Mef26Smoke.java
+          native_jar=$(find packages/maven/natives/target -name '*.jar' -not -name '*sources*' | head -n 1)
+          java -Djava.library.path=/tmp -cp "/tmp/mef26-java-classes:${native_jar}" Mef26Smoke

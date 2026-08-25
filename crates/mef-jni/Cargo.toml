@@ -1,0 +1,29 @@
+[package]
+name = "mef-jni"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "JNI metadata binding for the MEF-26 Maven package."
+authors = ["GoldPilgrim"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/GoldPilgrim/mef-26"
+publish = false
+
+[lib]
+name = "mef_jni"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.22.4"
+mef-26 = { path = "../..", default-features = false, features = ["std"] }
+
+[lints.rust]
+unsafe_code = "allow"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
