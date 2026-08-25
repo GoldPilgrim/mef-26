@@ -69,6 +69,10 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Build native bindings
         shell: bash
         run: cargo build -p mef-ffi -p mef-napi -p mef-jni --release
