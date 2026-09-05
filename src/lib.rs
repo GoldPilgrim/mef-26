@@ -20,6 +20,9 @@ pub mod error;
 pub mod frame;
 /// Authenticated asynchronous X25519 prekey handshake profile.
 pub mod handshake;
+/// Optional authenticated X25519 plus ML-KEM-768 hybrid handshake profile.
+#[cfg(feature = "pq")]
+pub mod hybrid;
 /// Typed X25519 and Ed25519 key material plus signed prekeys.
 pub mod keys;
 /// Optional ML-KEM-768 primitive adapter; this does not by itself define a PQ handshake.

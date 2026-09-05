@@ -1,6 +1,6 @@
 {
   "name": "@goldpilgrim/mef26-darwin-arm64",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "macOS arm64 native artifact for @goldpilgrim/mef26.",
   "license": "AGPL-3.0-or-later",
   "author": "GoldPilgrim",

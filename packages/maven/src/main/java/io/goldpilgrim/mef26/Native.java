@@ -24,7 +24,7 @@ final class Native {
         } catch (IOException | UnsatisfiedLinkError exception) {
             UnsatisfiedLinkError failure = new UnsatisfiedLinkError(
                     "MEF-26 could not load a matching JNI library. Add the appropriate "
-                            + "io.goldpilgrim:mef26-native-<platform>:0.1.0 runtime artifact.");
+                            + "io.goldpilgrim:mef26-native-<platform>:0.1.1 runtime artifact.");
             failure.initCause(exception);
             throw failure;
         }

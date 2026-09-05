@@ -8,7 +8,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.goldpilgrim</groupId>
   <artifactId>mef26</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <name>MEF-26 JVM bindings</name>
   <description>AGPL-3.0-or-later Java facade for MEF-26 native bindings.</description>
   <url>https://github.com/GoldPilgrim/mef-26</url>

@@ -7,7 +7,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.goldpilgrim</groupId>
   <artifactId>mef26-native-${mef.platform}</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <name>MEF-26 ${mef.platform} JNI native artifact</name>
   <description>Platform-specific JNI resource for the MEF-26 Maven facade.</description>
   <url>https://github.com/GoldPilgrim/mef-26</url>

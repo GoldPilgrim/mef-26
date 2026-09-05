@@ -1,6 +1,6 @@
 [package]
 name = "mef-ffi"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.89"
 description = "Minimal stable C ABI metadata layer for MEF-26."
@@ -14,7 +14,7 @@ name = "mef_ffi"
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-mef-26 = { path = "../..", default-features = false, features = ["std"] }
+mef-26 = { path = "../..", version = "0.1.1", default-features = false, features = ["std"] }
 
 [lints.rust]
 unsafe_code = "allow"

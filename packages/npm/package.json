@@ -1,6 +1,6 @@
 {
   "name": "@goldpilgrim/mef26",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Platform-selecting N-API metadata binding for MEF-26.",
   "license": "AGPL-3.0-or-later",
   "author": "GoldPilgrim",
@@ -21,10 +21,10 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "@goldpilgrim/mef26-darwin-arm64": "0.1.0",
-    "@goldpilgrim/mef26-darwin-x64": "0.1.0",
-    "@goldpilgrim/mef26-linux-x64-gnu": "0.1.0",
-    "@goldpilgrim/mef26-win32-x64-msvc": "0.1.0"
+    "@goldpilgrim/mef26-darwin-arm64": "0.1.1",
+    "@goldpilgrim/mef26-darwin-x64": "0.1.1",
+    "@goldpilgrim/mef26-linux-x64-gnu": "0.1.1",
+    "@goldpilgrim/mef26-win32-x64-msvc": "0.1.1"
   },
   "scripts": {
     "check": "node --check index.js && node --check scripts/package-native.mjs",

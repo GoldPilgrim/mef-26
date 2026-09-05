@@ -24,10 +24,26 @@ mod tests {
     #[test]
     fn every_aead_suite_round_trips() -> Result<()> {
         let key = AeadKey::from_bytes(KEY);
-        for suite in [AeadSuite::Aes256Gcm, AeadSuite::ChaCha20Poly1305, AeadSuite::XChaCha20Poly1305] {
+        for suite in [
+            AeadSuite::Aes256Gcm,
+            AeadSuite::Aes256GcmSiv,
+            AeadSuite::ChaCha20Poly1305,
+            AeadSuite::XChaCha20Poly1305,
+        ] {
             let ciphertext = seal(&key, suite, b"mef aad", b"confidential payload")?;
             assert_eq!(open(&key, &ciphertext, b"mef aad")?, b"confidential payload");
         }
+        Ok(())
+    }
+
+    #[test]
+    fn aes_gcm_siv_rejects_tampering_and_wrong_aad() -> Result<()> {
+        let key = AeadKey::from_bytes(KEY);
+        let mut ciphertext =
+            seal_with_nonce(&key, AeadSuite::Aes256GcmSiv, &[9_u8; 12], b"correct aad", b"payload")?;
+        assert_eq!(open(&key, &ciphertext, b"wrong aad"), Err(MefError::AuthenticationFailed));
+        ciphertext.tamper_first_byte_for_test();
+        assert_eq!(open(&key, &ciphertext, b"correct aad"), Err(MefError::AuthenticationFailed));
         Ok(())
     }
 
@@ -64,7 +80,7 @@ mod tests {
     fn explicit_nonce_must_match_suite() {
         let key = AeadKey::from_bytes(KEY);
         assert_eq!(
-            seal_with_nonce(&key, AeadSuite::Aes256Gcm, &[0_u8; 24], b"", b"payload"),
+            seal_with_nonce(&key, AeadSuite::Aes256GcmSiv, &[0_u8; 24], b"", b"payload"),
             Err(MefError::InvalidLength)
         );
     }

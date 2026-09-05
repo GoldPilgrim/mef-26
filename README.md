@@ -7,11 +7,12 @@ MEF-26 is an AGPL-3.0-or-later Rust framework core for **1:1 end-to-end encrypte
 | Component | Responsibility |
 |---|---|
 | `handshake` | Classical X25519 asynchronous prekey profile with Ed25519 identity binding, signed prekeys, optional one-time prekeys, canonical initiator messages, and transcript-bound session material. |
+| `hybrid` | Feature-gated native Rust X25519 plus ML-KEM-768 hybrid prekey profile with signed ML-KEM bundle binding and canonical wire encoding. It is not claimed to be a formally proven PQXDH composition. |
 | `ratchet` | One-time message keys, bounded out-of-order delivery, DH recovery steps, and versioned encrypted snapshot/restore with rollback-floor enforcement. |
 | `frame` | Versioned canonical inner-message encoding with authenticated session, ratchet and counter headers. |
 | `envelope` | X25519-sealed mailbox envelope, expiry, authenticated padding removal, and bounded recipient replay cache. |
-| `crypto` | Typed wrappers over BLAKE3, HKDF-SHA-256, X25519, Ed25519, AES-256-GCM, ChaCha20-Poly1305 and XChaCha20-Poly1305. |
-| `pq` | Optional ML-KEM-768 primitive adapter. It is **not** composed into this handshake and does not claim PQXDH security. |
+| `crypto` | Typed wrappers over BLAKE3, HKDF-SHA-256, X25519, Ed25519, AES-256-GCM, AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305. |
+| `pq` | Optional native Rust ML-KEM-768 primitive adapter with canonical public-key and ciphertext encodings. The `hybrid` profile composes it with the authenticated classical handshake, but does not claim formal PQXDH security. |
 
 The C, Node.js and JVM packages currently expose ABI metadata only. They are not stateful cryptographic bindings; an opaque-handle ABI requires its own review.
 
@@ -21,8 +22,8 @@ The C, Node.js and JVM packages currently expose ABI metadata only. They are not
 |---|---|
 | 1 | Publish a verified `ResponderPrekeyBundle` through an authenticated key directory. Rotate signed prekeys and replenish one-time prekeys according to service policy. |
 | 2 | Call `handshake::initiate` only after verifying the remote identity through the application’s trust UX. Deliver the canonical `InitiatorHandshake` to the responder. |
-| 3 | Call `handshake::accept`, then initialize each endpoint using `RatchetState::from_authenticated_handshake`. The raw-byte-secret constructor is intentionally unavailable. |
-| 4 | Store `RatchetState::seal_state` output and its monotonic rollback floor atomically with each outbound ciphertext or accepted inbound message. Use a platform-secure `StateSealKey` and account/device/session-specific context. |
+| 3 | Call `handshake::accept`, or use the feature-gated `hybrid` profile for the explicit X25519 plus ML-KEM-768 path, then initialize each endpoint using `RatchetState::from_authenticated_handshake` or `from_authenticated_handshake_with_suite`. The raw-byte-secret constructor is intentionally unavailable. |
+| 4 | Store `RatchetState::seal_state` output and its monotonic rollback floor atomically with each outbound ciphertext or accepted inbound message. Persistence v2 records the selected payload suite; v1 XChaCha snapshots remain readable. Use a platform-secure `StateSealKey` and account/device/session-specific context. |
 | 5 | Use `OuterEnvelope::open_inner_once` with a persisted, bounded `ReplayCache`. This authenticates the envelope, removes checked zero padding, and rejects duplicate transport IDs. |
 | 6 | Protect local identity/prekey/persistence keys with platform secure storage and provide explicit identity-change verification UX. |
 
@@ -45,11 +46,11 @@ cargo build --workspace --release --all-features
 |---|---|
 | C | Versioned metadata ABI. Build with `cargo build -p mef-ffi --release`. |
 | Node.js | Metadata ABI. `@goldpilgrim/mef26` resolves one optional `@goldpilgrim/mef26-<platform>` package containing the matching prebuilt `.node` artifact. |
-| JVM | Metadata ABI. Add `io.goldpilgrim:mef26-native-<platform>:0.1.0` at runtime; it contributes the matching `mef_jni` library as a classpath resource. |
+| JVM | Metadata ABI. Add `io.goldpilgrim:mef26-native-<platform>:0.1.1` at runtime; it contributes the matching `mef_jni` library as a classpath resource. |
 
 ## Security status
 
-MEF-26 has parser, state-transition and regression coverage, but **an independent cryptographic audit is required before production deployment**. The classical handshake profile is specified by this implementation; post-quantum composition, multi-device policy, group messaging and anonymity transport are explicitly outside the current security claim.
+MEF-26 has parser, state-transition and regression coverage, but **an independent cryptographic audit is required before production deployment**. The v0.1.1 hybrid profile provides native Rust ML-KEM-768 integration with transcript binding; it is not a formal PQXDH proof. Multi-device policy, group messaging and anonymity transport remain outside the current security claim.
 
 To report a vulnerability, see [SECURITY.md](SECURITY.md).
 

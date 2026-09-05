@@ -38,6 +38,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "aes-gcm-siv"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c32325128cb24de2a2d14d92da7569dae7073f9e47334521d494747fa94d902"
+dependencies = [
+ "aead",
+ "aes",
+ "cipher",
+ "ctr",
+ "ctutils",
+ "polyval",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -664,9 +678,10 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "mef-26"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "aes-gcm",
+ "aes-gcm-siv",
  "blake3",
  "chacha20poly1305",
  "ed25519-dalek",
@@ -686,14 +701,14 @@ dependencies = [
 
 [[package]]
 name = "mef-ffi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mef-26",
 ]
 
 [[package]]
 name = "mef-jni"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jni",
  "mef-26",
@@ -701,7 +716,7 @@ dependencies = [
 
 [[package]]
 name = "mef-napi"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "mef-26",
  "napi",

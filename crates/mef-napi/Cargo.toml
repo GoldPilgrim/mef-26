@@ -1,6 +1,6 @@
 [package]
 name = "mef-napi"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.89"
 build = "build.rs"
@@ -15,7 +15,7 @@ name = "mef_napi"
 crate-type = ["cdylib"]
 
 [dependencies]
-mef-26 = { path = "../..", default-features = false, features = ["std"] }
+mef-26 = { path = "../..", version = "0.1.1", default-features = false, features = ["std"] }
 napi = { version = "3.12.2", default-features = false, features = ["napi4"] }
 napi-derive = "3.6.3"
 

@@ -13,23 +13,40 @@ pub use state::{RatchetRole, RatchetState};
 
 #[cfg(test)]
 mod tests {
-    use super::RatchetState;
+    use super::{RatchetState, StateSealKey};
     use crate::{
         MefError, Result,
+        crypto::AeadSuite,
         frame::FrameKind,
         handshake::{LocalIdentity, ResponderPrekeyMaterial, accept, initiate},
     };
 
     fn pair() -> Result<(RatchetState, RatchetState)> {
+        pair_with_suite(AeadSuite::XChaCha20Poly1305)
+    }
+
+    fn pair_with_suite(suite: AeadSuite) -> Result<(RatchetState, RatchetState)> {
         let alice_identity = LocalIdentity::generate()?;
         let mut bob_material = ResponderPrekeyMaterial::generate(7, 2_000)?;
         bob_material.add_one_time_prekey(19)?;
         let (message, alice_handshake) = initiate(&alice_identity, &bob_material.bundle(), 1_000)?;
         let bob_handshake = accept(&mut bob_material, &message)?;
         Ok((
-            RatchetState::from_authenticated_handshake(alice_handshake)?,
-            RatchetState::from_authenticated_handshake(bob_handshake)?,
+            RatchetState::from_authenticated_handshake_with_suite(alice_handshake, suite)?,
+            RatchetState::from_authenticated_handshake_with_suite(bob_handshake, suite)?,
         ))
+    }
+
+    #[test]
+    fn aes_gcm_siv_ratchet_round_trip_and_snapshot_restore() -> Result<()> {
+        let (mut alice, mut bob) = pair_with_suite(AeadSuite::Aes256GcmSiv)?;
+        assert_eq!(alice.suite(), AeadSuite::Aes256GcmSiv);
+        assert_eq!(bob.decrypt(&alice.encrypt(FrameKind::Message, b"siv payload")?)?, b"siv payload");
+        let key = StateSealKey::from_bytes([17_u8; 32]);
+        let blob = bob.seal_state(&key, b"v011/aes-siv")?;
+        let restored = RatchetState::restore_state(&key, b"v011/aes-siv", bob.generation(), &blob)?;
+        assert_eq!(restored.suite(), AeadSuite::Aes256GcmSiv);
+        Ok(())
     }
 
     #[test]

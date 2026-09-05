@@ -8,6 +8,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce as AesNonce,
     aead::{AeadInOut, KeyInit},
 };
+use aes_gcm_siv::{Aes256GcmSiv, Nonce as AesSivNonce};
 use chacha20poly1305::{ChaCha20Poly1305, Nonce as ChaChaNonce, XChaCha20Poly1305, XNonce};
 
 use super::{AeadKey, random::fill_secure};
@@ -23,10 +24,12 @@ const AEAD_TAG_LEN: usize = 16;
 pub enum AeadSuite {
     /// AES-256-GCM with a 96-bit nonce and a 128-bit authentication tag.
     Aes256Gcm = 1,
+    /// AES-256-GCM-SIV with a 96-bit nonce and a 128-bit authentication tag.
+    Aes256GcmSiv = 2,
     /// ChaCha20-Poly1305 with a 96-bit nonce and a 128-bit authentication tag.
-    ChaCha20Poly1305 = 2,
+    ChaCha20Poly1305 = 3,
     /// XChaCha20-Poly1305 with a 192-bit nonce and a 128-bit authentication tag.
-    XChaCha20Poly1305 = 3,
+    XChaCha20Poly1305 = 4,
 }
 
 impl AeadSuite {
@@ -38,8 +41,9 @@ impl AeadSuite {
     pub const fn from_id(value: u8) -> Result<Self> {
         match value {
             1 => Ok(Self::Aes256Gcm),
-            2 => Ok(Self::ChaCha20Poly1305),
-            3 => Ok(Self::XChaCha20Poly1305),
+            2 => Ok(Self::Aes256GcmSiv),
+            3 => Ok(Self::ChaCha20Poly1305),
+            4 => Ok(Self::XChaCha20Poly1305),
             _ => Err(MefError::UnsupportedSuite),
         }
     }
@@ -54,7 +58,7 @@ impl AeadSuite {
     #[must_use]
     pub const fn nonce_len(self) -> usize {
         match self {
-            Self::Aes256Gcm | Self::ChaCha20Poly1305 => AES_CHACHA_NONCE_LEN,
+            Self::Aes256Gcm | Self::Aes256GcmSiv | Self::ChaCha20Poly1305 => AES_CHACHA_NONCE_LEN,
             Self::XChaCha20Poly1305 => XCHACHA_NONCE_LEN,
         }
     }
@@ -148,6 +152,16 @@ pub fn seal_with_nonce(
                 )
                 .map_err(|_| MefError::AuthenticationFailed)?;
         }
+        AeadSuite::Aes256GcmSiv => {
+            Aes256GcmSiv::new_from_slice(key.as_bytes())
+                .map_err(|_| MefError::InvalidLength)?
+                .encrypt_in_place(
+                    &AesSivNonce::try_from(nonce).map_err(|_| MefError::InvalidLength)?,
+                    aad,
+                    &mut body,
+                )
+                .map_err(|_| MefError::AuthenticationFailed)?;
+        }
         AeadSuite::ChaCha20Poly1305 => {
             ChaCha20Poly1305::new_from_slice(key.as_bytes())
                 .map_err(|_| MefError::InvalidLength)?
@@ -189,6 +203,17 @@ pub fn open(key: &AeadKey, ciphertext: &Ciphertext, aad: &[u8]) -> Result<Vec<u8
                 .map_err(|_| MefError::InvalidLength)?
                 .decrypt_in_place(
                     &AesNonce::try_from(ciphertext.nonce.as_slice()).map_err(|_| MefError::InvalidLength)?,
+                    aad,
+                    &mut plaintext,
+                )
+                .map_err(|_| MefError::AuthenticationFailed)?;
+        }
+        AeadSuite::Aes256GcmSiv => {
+            Aes256GcmSiv::new_from_slice(key.as_bytes())
+                .map_err(|_| MefError::InvalidLength)?
+                .decrypt_in_place(
+                    &AesSivNonce::try_from(ciphertext.nonce.as_slice())
+                        .map_err(|_| MefError::InvalidLength)?,
                     aad,
                     &mut plaintext,
                 )

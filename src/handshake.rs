@@ -21,6 +21,10 @@ const VERSION: u8 = 1;
 const IDENTITY_BINDING_LABEL: &str = "handshake-identity-dh-v1";
 const SESSION_LABEL: &str = "handshake-session-v1";
 const ROOT_LABEL: &str = "handshake-x3dh-root-v1";
+#[cfg(feature = "pq")]
+const HYBRID_SESSION_LABEL: &str = "handshake-hybrid-mlkem768-session-v1";
+#[cfg(feature = "pq")]
+const HYBRID_ROOT_LABEL: &str = "handshake-hybrid-mlkem768-root-v1";
 const MESSAGE_LEN: usize = 3 + 1 + 32 + 32 + 64 + 32 + 32 + 4 + 1 + 4;
 const BUNDLE_LEN: usize = 3 + 1 + 32 + 32 + 64 + 4 + 32 + 8 + 64 + 1 + 4 + 32;
 
@@ -59,6 +63,11 @@ impl LocalIdentity {
     fn signing(&self) -> &IdentityKeyPair {
         &self.signing
     }
+
+    #[cfg(feature = "pq")]
+    pub(crate) fn sign_message(&self, message: &[u8]) -> [u8; 64] {
+        self.signing.sign(message)
+    }
 }
 
 /// A signing identity, X25519 identity key and signature binding the two together.
@@ -89,6 +98,11 @@ impl IdentityDhPublic {
     /// Returns [`MefError::AuthenticationFailed`] for an invalid binding.
     pub fn verify(&self) -> Result<()> {
         self.signing.verify(&identity_binding_transcript(self.dh), &self.signature)
+    }
+
+    #[cfg(feature = "pq")]
+    pub(crate) fn verify_signature(&self, message: &[u8], signature: &[u8; 64]) -> Result<()> {
+        self.signing.verify(message, signature)
     }
 }
 
@@ -282,6 +296,11 @@ impl ResponderPrekeyMaterial {
         Ok(())
     }
 
+    #[cfg(feature = "pq")]
+    pub(crate) fn sign_message(&self, message: &[u8]) -> [u8; 64] {
+        self.identity.sign_message(message)
+    }
+
     /// Returns the number of unconsumed one-time prekeys.
     #[must_use]
     pub fn available_one_time_prekeys(&self) -> usize {
@@ -430,6 +449,18 @@ impl AuthenticatedHandshake {
 
     pub(crate) fn into_ratchet_parts(self) -> ([u8; 32], Secret, RatchetRole, DhKeyPair, DhPublicKey) {
         (self.session_id, self.root_secret, self.role, self.local_ratchet, self.remote_ratchet)
+    }
+
+    #[cfg(feature = "pq")]
+    pub(crate) fn mix_ml_kem768(mut self, shared_secret: &[u8; 32]) -> Result<Self> {
+        let classical_root = self.root_secret.copy_bytes();
+        let session_id = blake3_id(HYBRID_SESSION_LABEL, &[&self.session_id, shared_secret])?;
+        let mut input = [0_u8; 64];
+        input[..32].copy_from_slice(&classical_root);
+        input[32..].copy_from_slice(shared_secret);
+        self.session_id = session_id;
+        self.root_secret = derive_secret(&session_id, HYBRID_ROOT_LABEL, &input)?;
+        Ok(self)
     }
 }
 

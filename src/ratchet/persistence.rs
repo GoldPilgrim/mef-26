@@ -18,11 +18,14 @@ use crate::{
 };
 
 const MAGIC: [u8; 3] = *b"MRS";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
+const LEGACY_VERSION: u8 = 1;
 const NONCE_LEN: usize = 24;
 const HEADER_LEN: usize = 3 + 1 + 8 + 1 + 4;
-const PLAINTEXT_FIXED_LEN: usize = 32 + 32 + 32 + 32 + 32 + 32 + 4 + 4 + 4 + 2;
-const AAD_LABEL: &[u8] = b"MEF-26/ratchet-state-v1\0";
+const PLAINTEXT_FIXED_LEN_V1: usize = 32 + 32 + 32 + 32 + 32 + 32 + 4 + 4 + 4 + 2;
+const PLAINTEXT_FIXED_LEN_V2: usize = PLAINTEXT_FIXED_LEN_V1 + 1;
+const AAD_LABEL_V1: &[u8] = b"MEF-26/ratchet-state-v1\0";
+const AAD_LABEL_V2: &[u8] = b"MEF-26/ratchet-state-v2\0";
 
 /// A 256-bit key used only to seal and restore one ratchet-state record.
 #[derive(Debug)]
@@ -47,7 +50,7 @@ impl RatchetState {
     /// Returns an error for oversized context, invalid internal state, unavailable randomness or
     /// AEAD failures.
     pub fn seal_state(&self, key: &StateSealKey, context: &[u8]) -> Result<Vec<u8>> {
-        let aad = state_aad(context)?;
+        let aad = state_aad(context, VERSION)?;
         let mut plaintext = encode_state(self)?;
         let ciphertext = seal(&key.0, AeadSuite::XChaCha20Poly1305, &aad, &plaintext);
         plaintext.zeroize();
@@ -79,7 +82,10 @@ impl RatchetState {
         minimum_generation: u64,
         blob: &[u8],
     ) -> Result<Self> {
-        if blob.len() < HEADER_LEN + NONCE_LEN + 16 || blob[..3] != MAGIC || blob[3] != VERSION {
+        if blob.len() < HEADER_LEN + NONCE_LEN + 16
+            || blob[..3] != MAGIC
+            || !matches!(blob[3], LEGACY_VERSION | VERSION)
+        {
             return Err(MefError::InvalidFrame);
         }
         let generation = u64::from_be_bytes(copy_array(&blob[4..12])?);
@@ -101,9 +107,9 @@ impl RatchetState {
             blob[HEADER_LEN..HEADER_LEN + NONCE_LEN].to_vec(),
             blob[HEADER_LEN + NONCE_LEN..].to_vec(),
         )?;
-        let aad = state_aad(context)?;
+        let aad = state_aad(context, blob[3])?;
         let mut plaintext = open(&key.0, &ciphertext, &aad)?;
-        let state = decode_state(&plaintext, generation);
+        let state = decode_state(&plaintext, generation, blob[3]);
         plaintext.zeroize();
         state
     }
@@ -114,7 +120,7 @@ fn encode_state(state: &RatchetState) -> Result<Vec<u8>> {
         return Err(MefError::InvalidState);
     }
     let skipped_len = u16::try_from(state.skipped.len()).map_err(|_| MefError::InvalidState)?;
-    let capacity = PLAINTEXT_FIXED_LEN
+    let capacity = PLAINTEXT_FIXED_LEN_V2
         .checked_add(usize::from(skipped_len).checked_mul(68).ok_or(MefError::InvalidLength)?)
         .ok_or(MefError::InvalidLength)?;
     let mut output = Vec::with_capacity(capacity);
@@ -127,6 +133,7 @@ fn encode_state(state: &RatchetState) -> Result<Vec<u8>> {
     output.extend_from_slice(&state.previous_sending_chain_len.to_be_bytes());
     output.extend_from_slice(&state.sending_count.to_be_bytes());
     output.extend_from_slice(&state.receiving_count.to_be_bytes());
+    output.push(state.suite.id());
     output.extend_from_slice(&skipped_len.to_be_bytes());
     for entry in &state.skipped {
         output.extend_from_slice(&entry.remote_dh.to_bytes());
@@ -136,15 +143,25 @@ fn encode_state(state: &RatchetState) -> Result<Vec<u8>> {
     Ok(output)
 }
 
-fn decode_state(bytes: &[u8], generation: u64) -> Result<RatchetState> {
-    if bytes.len() < PLAINTEXT_FIXED_LEN {
+fn decode_state(bytes: &[u8], generation: u64, version: u8) -> Result<RatchetState> {
+    let fixed_len = match version {
+        LEGACY_VERSION => PLAINTEXT_FIXED_LEN_V1,
+        VERSION => PLAINTEXT_FIXED_LEN_V2,
+        _ => return Err(MefError::InvalidFrame),
+    };
+    if bytes.len() < fixed_len {
         return Err(MefError::InvalidFrame);
     }
-    let skipped_count = usize::from(u16::from_be_bytes(copy_array(&bytes[204..206])?));
+    let (suite, count_offset) = if version == LEGACY_VERSION {
+        (AeadSuite::XChaCha20Poly1305, 204)
+    } else {
+        (AeadSuite::from_id(bytes[204])?, 205)
+    };
+    let skipped_count = usize::from(u16::from_be_bytes(copy_array(&bytes[count_offset..count_offset + 2])?));
     if skipped_count > MAX_SKIPPED_KEYS {
         return Err(MefError::InvalidState);
     }
-    let expected = PLAINTEXT_FIXED_LEN
+    let expected = fixed_len
         .checked_add(skipped_count.checked_mul(68).ok_or(MefError::InvalidLength)?)
         .ok_or(MefError::InvalidLength)?;
     if bytes.len() != expected {
@@ -159,13 +176,13 @@ fn decode_state(bytes: &[u8], generation: u64) -> Result<RatchetState> {
     let previous_sending_chain_len = u32::from_be_bytes(copy_array(&bytes[192..196])?);
     let sending_count = u32::from_be_bytes(copy_array(&bytes[196..200])?);
     let receiving_count = u32::from_be_bytes(copy_array(&bytes[200..204])?);
-    let encoded_count = usize::from(u16::from_be_bytes(copy_array(&bytes[204..206])?));
+    let encoded_count = usize::from(u16::from_be_bytes(copy_array(&bytes[count_offset..count_offset + 2])?));
     if encoded_count != skipped_count {
         return Err(MefError::InvalidFrame);
     }
     let mut skipped = Vec::with_capacity(skipped_count);
     for index in 0..skipped_count {
-        let offset = 206 + index.checked_mul(68).ok_or(MefError::InvalidLength)?;
+        let offset = fixed_len + index.checked_mul(68).ok_or(MefError::InvalidLength)?;
         let remote_dh = DhPublicKey::from_bytes(copy_array(&bytes[offset..offset + 32])?);
         let message_number = u32::from_be_bytes(copy_array(&bytes[offset + 32..offset + 36])?);
         if skipped.iter().any(|entry: &SkippedMessageKey| {
@@ -190,17 +207,19 @@ fn decode_state(bytes: &[u8], generation: u64) -> Result<RatchetState> {
         sending_count,
         receiving_count,
         generation,
+        suite,
         skipped,
     })
 }
 
-fn state_aad(context: &[u8]) -> Result<Vec<u8>> {
-    let capacity = AAD_LABEL.len().checked_add(context.len()).ok_or(MefError::InvalidLength)?;
+fn state_aad(context: &[u8], version: u8) -> Result<Vec<u8>> {
+    let label = if version == LEGACY_VERSION { AAD_LABEL_V1 } else { AAD_LABEL_V2 };
+    let capacity = label.len().checked_add(context.len()).ok_or(MefError::InvalidLength)?;
     if capacity > MAX_AAD_LEN {
         return Err(MefError::InvalidLength);
     }
     let mut output = Vec::with_capacity(capacity);
-    output.extend_from_slice(AAD_LABEL);
+    output.extend_from_slice(label);
     output.extend_from_slice(context);
     Ok(output)
 }

@@ -1,6 +1,6 @@
 [package]
 name = "mef-jni"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.89"
 description = "JNI metadata binding for the MEF-26 Maven package."
@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 jni = "0.22.4"
-mef-26 = { path = "../..", default-features = false, features = ["std"] }
+mef-26 = { path = "../..", version = "0.1.1", default-features = false, features = ["std"] }
 
 [lints.rust]
 unsafe_code = "allow"

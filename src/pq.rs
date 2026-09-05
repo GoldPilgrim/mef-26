@@ -9,7 +9,7 @@
 //! that composition requires its own protocol review and test vectors.
 
 use getrandom::{SysRng, rand_core::TryRng};
-use kem::{Decapsulate, Generate};
+use kem::{Decapsulate, Generate, KeyExport};
 use ml_kem::{
     B32,
     ml_kem_768::{Ciphertext, DecapsulationKey, EncapsulationKey},
@@ -37,6 +37,10 @@ impl MlKem768SharedSecret {
     #[cfg(test)]
     pub(crate) const fn copy_bytes(&self) -> [u8; SHARED_KEY_LEN] {
         self.0
+    }
+
+    pub(crate) const fn as_bytes(&self) -> &[u8; SHARED_KEY_LEN] {
+        &self.0
     }
 }
 
@@ -71,6 +75,29 @@ impl MlKem768KeyPair {
     pub fn decapsulate(&self, ciphertext: &MlKem768Ciphertext) -> MlKem768SharedSecret {
         shared_secret_from_slice(self.secret.decapsulate(&ciphertext.0).as_slice())
     }
+
+    /// Returns the public ML-KEM-768 encapsulation key.
+    pub fn public_key(&self) -> MlKem768PublicKey {
+        self.public.clone()
+    }
+}
+
+impl MlKem768Ciphertext {
+    /// Returns the canonical ML-KEM-768 ciphertext bytes.
+    #[must_use]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+
+    /// Parses canonical ML-KEM-768 ciphertext bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the input has an invalid length.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let encoded = bytes.try_into().map_err(|_| MefError::InvalidLength)?;
+        Ok(Self(encoded))
+    }
 }
 
 impl core::fmt::Debug for MlKem768KeyPair {
@@ -80,6 +107,23 @@ impl core::fmt::Debug for MlKem768KeyPair {
 }
 
 impl MlKem768PublicKey {
+    /// Returns the canonical FIPS 203 ML-KEM-768 encapsulation-key bytes.
+    #[must_use]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        self.0.to_bytes().to_vec()
+    }
+
+    /// Parses canonical ML-KEM-768 encapsulation-key bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the input has an invalid length or fails key validation.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let encoded = bytes.try_into().map_err(|_| MefError::InvalidLength)?;
+        let key = EncapsulationKey::new(&encoded).map_err(|_| MefError::AuthenticationFailed)?;
+        Ok(Self(key))
+    }
+
     /// Encapsulates a fresh 32-byte secret using fallible operating-system randomness.
     pub fn encapsulate(&self) -> Result<(MlKem768Ciphertext, MlKem768SharedSecret)> {
         let mut randomness = B32::default();

@@ -15,7 +15,7 @@ use crate::{
 
 const INIT_A_TO_B_LABEL: &str = "ratchet-init-a-to-b-v1";
 const INIT_B_TO_A_LABEL: &str = "ratchet-init-b-to-a-v1";
-const SUITE: AeadSuite = AeadSuite::XChaCha20Poly1305;
+const DEFAULT_SUITE: AeadSuite = AeadSuite::XChaCha20Poly1305;
 
 /// Direction used to derive the initial sending and receiving chains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,6 +39,7 @@ pub struct RatchetState {
     pub(super) sending_count: u32,
     pub(super) receiving_count: u32,
     pub(super) generation: u64,
+    pub(super) suite: AeadSuite,
     pub(super) skipped: Vec<SkippedMessageKey>,
 }
 
@@ -60,6 +61,17 @@ impl RatchetState {
     ///
     /// Propagates initial HKDF key-schedule failures.
     pub fn from_authenticated_handshake(handshake: AuthenticatedHandshake) -> Result<Self> {
+        Self::from_authenticated_handshake_with_suite(handshake, DEFAULT_SUITE)
+    }
+
+    /// Initializes a ratchet with an explicit payload AEAD suite.
+    ///
+    /// The selected suite is authenticated in every frame header and persisted in
+    /// version-2 state snapshots. Use only suites supported by both endpoints.
+    pub fn from_authenticated_handshake_with_suite(
+        handshake: AuthenticatedHandshake,
+        suite: AeadSuite,
+    ) -> Result<Self> {
         let (session_id, root_key, role, local_dh, remote_dh) = handshake.into_ratchet_parts();
         let a_to_b = derive_secret(&root_key.copy_bytes(), INIT_A_TO_B_LABEL, &session_id)?;
         let b_to_a = derive_secret(&root_key.copy_bytes(), INIT_B_TO_A_LABEL, &session_id)?;
@@ -78,6 +90,7 @@ impl RatchetState {
             sending_count: 0,
             receiving_count: 0,
             generation: 0,
+            suite,
             skipped: Vec::new(),
         })
     }
@@ -92,6 +105,12 @@ impl RatchetState {
     #[must_use]
     pub const fn current_public_key(&self) -> DhPublicKey {
         self.dh_pair.public()
+    }
+
+    /// Returns the payload AEAD suite selected for this ratchet.
+    #[must_use]
+    pub const fn suite(&self) -> AeadSuite {
+        self.suite
     }
 
     /// Returns the number of currently retained skipped message keys.
@@ -121,7 +140,7 @@ impl RatchetState {
             self.previous_sending_chain_len,
             message_number,
         );
-        let frame = InnerFrame::seal(&message_key, SUITE, header, plaintext)?;
+        let frame = InnerFrame::seal(&message_key, self.suite, header, plaintext)?;
         self.sending_chain = next_chain;
         self.sending_count = self.sending_count.checked_add(1).ok_or(MefError::CounterExhausted)?;
         self.generation = self.generation.saturating_add(1);
@@ -135,7 +154,7 @@ impl RatchetState {
     /// Returns an error for session mismatch, failed authentication, replay, or invalid ratchet progress.
     pub fn decrypt(&mut self, frame: &InnerFrame) -> Result<Vec<u8>> {
         let header = frame.header();
-        if header.session_id() != self.session_id || frame.suite() != SUITE {
+        if header.session_id() != self.session_id || frame.suite() != self.suite {
             return Err(MefError::RatchetStateMismatch);
         }
         let remote_dh = DhPublicKey::from_bytes(header.ratchet_public());
